@@ -116,3 +116,7 @@ def test_to_gray_converts_colour():
 def test_load_recognizer_missing_model_explains_itself(tmp_path):
     with pytest.raises(RuntimeError, match="Run train_model.py first"):
         faces.load_recognizer(tmp_path / "nope.yml")
+
+
+def test_create_recognizer_returns_untrained_recognizer():
+    assert faces.create_recognizer() is not None

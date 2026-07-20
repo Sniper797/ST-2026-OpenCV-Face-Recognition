@@ -5,3 +5,6 @@ models/*
 __pycache__/
 *.pyc
 .pytest_cache/
+docs/images/*.jpg
+docs/images/*.png
+!docs/images/.gitkeep

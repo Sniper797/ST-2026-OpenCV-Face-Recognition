@@ -83,17 +83,26 @@ def decide_label(label_id, confidence, labels):
     return labels.get(str(label_id), "Unknown")
 
 
-def load_recognizer(model_path=None):
-    """Create an LBPH recognizer and load a trained model from disk."""
+def create_recognizer():
+    """Create an untrained LBPH recognizer.
+
+    Raises RuntimeError if cv2.face is absent, which happens when plain
+    opencv-python is installed instead of the contrib build.
+    """
     if not hasattr(cv2, "face"):
         raise RuntimeError(
             "cv2.face is missing. Install opencv-contrib-python==4.13.0.92 "
             "(plain opencv-python does not include the LBPH recognizer)."
         )
+    return cv2.face.LBPHFaceRecognizer_create()
+
+
+def load_recognizer(model_path=None):
+    """Create an LBPH recognizer and load a trained model from disk."""
     model_path = model_path or config.MODEL_PATH
     if not model_path.exists():
         raise RuntimeError(f"No trained model at {model_path}. Run train_model.py first.")
-    recognizer = cv2.face.LBPHFaceRecognizer_create()
+    recognizer = create_recognizer()
     recognizer.read(str(model_path))
     return recognizer
 
