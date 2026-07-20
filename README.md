@@ -3,8 +3,6 @@
 Detects human faces in images and live webcam video using Haar cascades, and identifies
 *who* a detected face belongs to using LBPH.
 
-SmartMethods ST-2026, Task 1 — *Make a project using OpenCV*.
-
 ## It works
 
 Two enrolled people, each matched to the right name:
