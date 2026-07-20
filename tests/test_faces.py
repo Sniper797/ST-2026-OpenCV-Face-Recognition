@@ -48,3 +48,24 @@ def test_normalize_face_equalizes_contrast():
     gray[50:250, 50:250] = np.random.RandomState(0).randint(100, 140, (200, 200))
     out = faces.normalize_face(gray, (50, 50, 200, 200))
     assert out.max() - out.min() > 200
+
+
+def test_low_distance_resolves_to_the_person():
+    labels = {"0": "Mohammed", "1": "Ali"}
+    assert faces.decide_label(0, 12.0, labels) == "Mohammed"
+
+
+def test_high_distance_resolves_to_unknown():
+    # 95 exceeds the threshold: a poor match must NOT be given a name.
+    labels = {"0": "Mohammed", "1": "Ali"}
+    assert faces.decide_label(0, 95.0, labels) == "Unknown"
+
+
+def test_threshold_boundary_is_exclusive():
+    labels = {"0": "Mohammed"}
+    assert faces.decide_label(0, config.CONFIDENCE_THRESHOLD, labels) == "Unknown"
+    assert faces.decide_label(0, config.CONFIDENCE_THRESHOLD - 0.1, labels) == "Mohammed"
+
+
+def test_unseen_label_id_is_unknown():
+    assert faces.decide_label(7, 5.0, {"0": "Mohammed"}) == "Unknown"
