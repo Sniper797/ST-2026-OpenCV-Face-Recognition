@@ -19,6 +19,28 @@ box around both of these faces. Recognition is what decides *which* is which —
 importantly, refuses to name a face it does not know. Measured results, including the
 never-enrolled control group, are further down.
 
+## Start here
+
+Reviewing this? Two files carry the project:
+
+| File | What it is |
+|---|---|
+| **[`src/faces.py`](src/faces.py)** | **The core.** Cascade loading, detection, face normalization, and the confidence-to-name decision. Every non-trivial line of this project is here. |
+| **[`src/recognize_live.py`](src/recognize_live.py)** | **The demo.** Webcam in, named faces out. This is the file to run. |
+
+Worth a look after those:
+
+| File | What it is |
+|---|---|
+| [`tests/test_faces.py`](tests/test_faces.py) | 22 tests over the core, including the threshold boundary and the negative cases |
+| [`src/train_model.py`](src/train_model.py) | Builds the LBPH model from `dataset/` |
+| [`src/capture_dataset.py`](src/capture_dataset.py) | Webcam → training images, with a guard against mislabeled frames |
+| [`src/detect_image.py`](src/detect_image.py) | Detection on a still image — runs with no training |
+| [`src/config.py`](src/config.py) | Paths and tunable constants. No logic. |
+
+The core is 149 lines; the four scripts are thin wrappers around it, 58–114 lines each. That
+split is deliberate: logic inside a webcam loop cannot be tested, so none of it lives there.
+
 ## Detection and recognition are two different jobs
 
 This trips people up, so it is worth stating plainly:
@@ -221,24 +243,19 @@ The fix is to recapture on the camera you actually intend to use. **Not** to rai
 threshold: that buys margin by making the system more willing to put a name to a stranger,
 which trades a visible failure for an invisible one.
 
-## Project structure
-
-```
-src/config.py           Paths and tunable constants
-src/faces.py            Core logic — detection, normalization, label decisions
-src/detect_image.py     Detect faces in a still image
-src/capture_dataset.py  Capture training images from the webcam
-src/train_model.py      Train the LBPH recognizer
-src/recognize_live.py   Live recognition
-tests/test_faces.py     Unit tests for the core
-```
-
-All the real logic lives in `faces.py`; the four scripts are thin wrappers. That split exists
-so the logic can be tested — anything inside a webcam loop cannot be.
+## Tests
 
 ```bash
 python -m pytest tests/ -v
 ```
+
+22 tests over [`src/faces.py`](src/faces.py). They cover detection against a photo with a
+known number of faces, the normalization pipeline, screenshot numbering, and — most
+importantly — the threshold decision, including its exact boundary and the case where a
+prediction returns a label the model has never seen.
+
+The webcam loops are not unit tested; they were verified by hand, and the results are in the
+table above. That is precisely why the logic worth testing was pulled out of them.
 
 ## The problem we hit, and how we fixed it
 
