@@ -84,6 +84,12 @@ def test_normalize_face_crops_the_correct_region():
     assert out_elsewhere.max() < 255
 
 
+def test_normalize_face_rejects_box_outside_image():
+    gray = np.zeros((480, 640), np.uint8)
+    with pytest.raises(ValueError, match="lies outside"):
+        faces.normalize_face(gray, (700, 500, 50, 50))
+
+
 def test_labels_round_trip_coerces_keys_to_strings(tmp_path):
     # JSON has no integer keys, so int ids come back as strings. This is exactly
     # why decide_label() looks up str(label_id) rather than label_id.

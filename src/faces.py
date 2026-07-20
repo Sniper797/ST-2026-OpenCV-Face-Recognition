@@ -44,13 +44,16 @@ def detect_faces(gray, cascade=None):
 def normalize_face(gray, box):
     """Crop a face box and standardize it for LBPH.
 
-    Requires GRAYSCALE input; run a colour frame through to_gray() first.
     Crop -> resize to FACE_SIZE -> histogram equalize. LBPH requires every
     image to share dimensions; equalization reduces sensitivity to lighting.
 
-    The box is clamped to the image bounds. Without that, numpy silently
-    returns a partial crop and cv2.resize stretches it to full size, quietly
-    poisoning the training set the moment anyone adds a margin to a box.
+    Input must be grayscale. Boxes are clamped to the image bounds, so a box that
+    hangs off an edge yields a smaller region that is then stretched to FACE_SIZE.
+    detectMultiScale never returns such boxes, but adding a margin (x - 20, w + 40)
+    can — which distorts the face's aspect ratio and degrades training data.
+
+    A box entirely outside the image raises ValueError rather than returning an
+    empty crop, which cv2.resize would reject with a less helpful message.
     """
     x, y, w, h = box
     height, width = gray.shape[:2]
