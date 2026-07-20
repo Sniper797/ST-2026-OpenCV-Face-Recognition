@@ -7,13 +7,19 @@ SmartMethods ST-2026, Task 1 — *Make a project using OpenCV*.
 
 ## It works
 
-![Live recognition: two faces detected and correctly named](docs/screenshots/recognition_005.jpg)
+Two enrolled people, each matched to the right name:
 
-Two people in one frame, each matched to the right name. The numbers are distances —
-lower is a better match, and anything at or above `70` would be rejected as `Unknown`.
+![Live recognition naming the first enrolled person](docs/screenshots/recognition_004.jpg)
 
-This is the whole point of the project in one image: the cascade found *two* faces, and
-LBPH then decided *which* was which rather than giving them both the same label.
+![Live recognition naming the second enrolled person](docs/screenshots/recognition_006.jpg)
+
+The number beside each name is a **distance** — lower is a better match, and anything at or
+above `70` is rejected as `Unknown`.
+
+That distinction is the whole point of the project. Detection alone would draw an identical
+box around both of these faces. Recognition is what decides *which* is which — and, just as
+importantly, refuses to name a face it does not know. Measured results, including the
+never-enrolled control group, are further down.
 
 ## Detection and recognition are two different jobs
 
@@ -86,10 +92,23 @@ SPACE = capture, 'a' = toggle auto-capture, 'q' = quit
 Saved 30 images to dataset/Mohammed
 ```
 
+![Capturing a dataset: detection box and progress counter](docs/screenshots/capture_002.jpg)
+
+The green box is the live detection and the counter tracks progress toward the target. Only
+the cropped, normalized face inside that box is written to disk — never the full frame.
+
 Move your head between captures — vary angle and expression. Thirty near-identical frames
 teach the recognizer far less than thirty varied ones. Auto-capture is throttled to one
 image every `CAPTURE_INTERVAL` seconds for the same reason: an unthrottled burst fills the
 dataset with copies of a single pose.
+
+**The second person does not have to be in the room.** A face on a phone or monitor held up
+to the camera enrols perfectly well, which is what was done here:
+
+![Capturing the second person from a video played on a phone](docs/screenshots/capture_005.jpg)
+
+Press `s` at any point to save a screenshot of the capture window to `docs/screenshots/`.
+That is how both images above were produced. It does not write a dataset image.
 
 Frames containing zero faces or more than one face are skipped rather than saved. A single
 wrong face in a folder silently corrupts training, and it is very hard to notice afterwards.
@@ -111,8 +130,8 @@ Real output from this project's own run:
 ```bash
 $ python src/train_model.py
   james: 29 images (id=0)
-  Mohammed: 29 images (id=1)
-Trained on 58 images across 2 people.
+  Mohammed: 30 images (id=1)
+Trained on 59 images across 2 people.
 Model:  models/lbph_model.yml
 Labels: models/labels.json
 ```
@@ -172,27 +191,37 @@ lighting: if strangers get names, lower it; if you get `Unknown`, raise it.
 
 ### Measured results
 
-Trained on 58 images across 2 people, threshold `70`:
+Current model: 59 images across 2 people, threshold `70`.
 
 | Subject | Distance | Verdict |
 |---|---|---|
-| Mohammed — same camera used for training | ~40 | matched |
-| Mohammed — **different** camera | 63–66 | matched, but barely |
-| james | 50–53 | matched |
-| 4 strangers, never enrolled | 89–99 | all correctly `Unknown` |
-
-Two things are worth reading off that table.
+| Mohammed | 47–55 | matched |
+| james | 35–50 | matched |
+| 4 strangers, never enrolled | 93–102 | all correctly `Unknown` |
 
 **The negative case passes.** All four unenrolled faces were rejected, with a wide gap
-between them and the enrolled ones. A recognizer that names everyone would also pass a
-positive-only test, so this check is what makes the positive result meaningful.
+between them and the enrolled ones. This is the check that makes the positive result mean
+anything — a recognizer that hands a name to *everyone* would also sail through a
+positive-only test.
 
-**Swapping cameras cost 24 points of margin.** The same face, minutes apart, scored ~40 on
-the camera it was trained on and 63–66 on a different one — still under the threshold, but
-with only 4 points to spare instead of 30. Nothing about the model or the person changed;
-only the sensor and its lighting did. This is the lighting sensitivity in the limitations
-below, quantified. The fix is to recapture on the camera you actually intend to use — **not**
-to raise the threshold, which would buy margin by letting strangers in.
+### What changing the camera costs
+
+This was measured rather than assumed, because the first version of this project was trained
+on one webcam and then run on a different one.
+
+| | Trained on camera 0 | Retrained on camera 1 |
+|---|---|---|
+| Mohammed, **viewed on camera 1** | 63–66 | **47–55** |
+| Margin before `Unknown` | 4–7 points | **15–23 points** |
+
+Same person, same camera, same threshold, minutes apart. The only change was which camera the
+*training images* came from. Running a model on hardware it was not trained on ate roughly
+three quarters of the safety margin — enough that a shift in lighting would have started
+flickering to `Unknown`.
+
+The fix is to recapture on the camera you actually intend to use. **Not** to raise the
+threshold: that buys margin by making the system more willing to put a name to a stranger,
+which trades a visible failure for an invisible one.
 
 ## Project structure
 
@@ -262,9 +291,9 @@ Stated honestly, because knowing where a technique fails is part of understandin
 - **Frontal faces only.** Turn your head far enough and detection fails.
   `haarcascade_frontalface_default.xml` is trained on faces looking at the camera.
 - **LBPH is sensitive to lighting and to the camera itself.** Histogram equalization helps
-  but does not eliminate it. Measured here: switching to a different webcam moved the same
-  person's distance from ~40 to 63–66 against a threshold of 70 — most of the safety margin,
-  gone, with nothing changed but the sensor. Train on the camera you will actually use.
+  but does not eliminate it. Measured here: a model trained on one webcam and run on another
+  scored the same person at 63–66 against a threshold of 70; retraining on the camera in use
+  brought that to 47–55. See the table above. Train on the camera you will actually use.
 - **At least two people are required.** With one enrolled person LBPH has nothing to
   discriminate against, so it matches everyone to that single class. The threshold is then
   the only thing rejecting strangers, which is not enough.
@@ -286,8 +315,8 @@ the publication. That makes committing an image of a person a decision to take d
 rather than by accident, which is why the two folders are separated and the ignored one is
 the default.
 
-The screenshot above is published by choice and shows the author. It also shows a second
-face, used as the required second class during testing.
+The screenshots in this README are published by choice. They show the author, and a second
+face used as the required second class during testing.
 
 ## Requirements
 
