@@ -12,6 +12,25 @@
 
 ---
 
+## Status: complete
+
+All tasks below are done and the work is pushed. Four things ended up differing from what
+was written here, recorded so the ticks are not read as more than they are.
+
+| Planned | What actually happened |
+|---|---|
+| Task 5, Step 4 commits `docs/images/detect_result.jpg` | **Not committed.** `.gitignore` excludes `docs/images/*.jpg`, so the plan contradicted itself. Published images now live in `docs/screenshots/`, which is tracked; `docs/images/` stays ignored for scratch output. |
+| Task 6 enrols a second person, "Person2" | Enrolled as **"james"**, captured from a video played on a phone held to the camera. LBPH needs a second class to discriminate against; a screen works for that. |
+| Tasks 4 and 11 expect **9 tests** | **22 tests.** Hardening after review added cases for box clamping, corrupt and missing label maps, grayscale pass-through, and screenshot numbering. |
+| Not planned at all | An `s` screenshot key in both webcam scripts; a full recapture and retrain on the camera actually in use, after the first model measured 63–66 against a threshold of 70 on different hardware. Both are documented in the README. |
+
+Two claims in this plan were also verified during execution rather than assumed: the group
+photo detects exactly 4 faces, and four never-enrolled faces are all correctly rejected
+(distances 93–102). The cat false positive noted below was real and is documented as a
+limitation.
+
+---
+
 ## Verified ground truth
 
 These were measured on this machine before planning. Tests below depend on them.
@@ -47,7 +66,7 @@ These were measured on this machine before planning. Tests below depend on them.
 **Files:**
 - Create: `requirements.txt`, `.gitignore`, `dataset/.gitkeep`, `models/.gitkeep`
 
-- [ ] **Step 1: Swap to the contrib build**
+- [x] **Step 1: Swap to the contrib build**
 
 `cv2.face` ships only in `opencv-contrib-python`, and it conflicts with `opencv-python`.
 Uninstall one, install the other:
@@ -58,7 +77,7 @@ PY="C:/ProgramData/anaconda3/envs/opencv/python.exe"
 "$PY" -m pip install "opencv-contrib-python==4.13.0.92" pytest
 ```
 
-- [ ] **Step 2: Verify `cv2.face` now exists**
+- [x] **Step 2: Verify `cv2.face` now exists**
 
 ```bash
 "$PY" -c "import cv2; print(cv2.__version__); print(hasattr(cv2,'face')); print(hasattr(cv2,'CascadeClassifier'))"
@@ -67,7 +86,7 @@ PY="C:/ProgramData/anaconda3/envs/opencv/python.exe"
 Expected: `4.13.0` / `True` / `True`. If `cv2.face` is False, both packages are still
 installed — uninstall both, then install only contrib.
 
-- [ ] **Step 3: Write `requirements.txt`**
+- [x] **Step 3: Write `requirements.txt`**
 
 ```
 opencv-contrib-python==4.13.0.92
@@ -75,7 +94,7 @@ numpy>=2.0
 pytest>=8.0
 ```
 
-- [ ] **Step 4: Write `.gitignore`**
+- [x] **Step 4: Write `.gitignore`**
 
 ```
 dataset/*
@@ -87,7 +106,7 @@ __pycache__/
 .pytest_cache/
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add requirements.txt .gitignore dataset/.gitkeep models/.gitkeep
@@ -101,7 +120,7 @@ git commit -m "chore: pin dependencies and scaffold project layout"
 **Files:**
 - Create: `src/config.py`
 
-- [ ] **Step 1: Write it**
+- [x] **Step 1: Write it**
 
 ```python
 """Shared paths and tunable constants."""
@@ -133,7 +152,7 @@ CONFIDENCE_THRESHOLD = 70.0
 IMAGES_PER_PERSON = 30
 ```
 
-- [ ] **Step 2: Verify it imports and resolves the cascade**
+- [x] **Step 2: Verify it imports and resolves the cascade**
 
 ```bash
 "$PY" -c "import sys; sys.path.insert(0,'src'); import config; print(config.CASCADE_PATH.exists())"
@@ -141,7 +160,7 @@ IMAGES_PER_PERSON = 30
 
 Expected: `True`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/config.py && git commit -m "feat: add shared configuration"
@@ -154,7 +173,7 @@ git add src/config.py && git commit -m "feat: add shared configuration"
 **Files:**
 - Create: `tests/test_faces.py`, `src/faces.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Unit tests for the face core."""
@@ -205,7 +224,7 @@ def test_normalize_face_equalizes_contrast():
     assert out.max() - out.min() > 200
 ```
 
-- [ ] **Step 2: Run the tests to confirm they fail**
+- [x] **Step 2: Run the tests to confirm they fail**
 
 ```bash
 "$PY" -m pytest tests/test_faces.py -v
@@ -213,7 +232,7 @@ def test_normalize_face_equalizes_contrast():
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'faces'`
 
-- [ ] **Step 3: Implement `src/faces.py`**
+- [x] **Step 3: Implement `src/faces.py`**
 
 ```python
 """Core face logic: detection, normalization, and label decisions.
@@ -289,7 +308,7 @@ def load_labels(path=None):
     return json.loads(path.read_text(encoding="utf-8"))
 ```
 
-- [ ] **Step 4: Run the tests to confirm they pass**
+- [x] **Step 4: Run the tests to confirm they pass**
 
 ```bash
 "$PY" -m pytest tests/test_faces.py -v
@@ -297,7 +316,7 @@ def load_labels(path=None):
 
 Expected: 5 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/faces.py tests/test_faces.py
@@ -314,7 +333,7 @@ It gets its own tests.
 **Files:**
 - Modify: `tests/test_faces.py`
 
-- [ ] **Step 1: Add the failing tests**
+- [x] **Step 1: Add the failing tests**
 
 ```python
 def test_low_distance_resolves_to_the_person():
@@ -338,7 +357,7 @@ def test_unseen_label_id_is_unknown():
     assert faces.decide_label(7, 5.0, {"0": "Mohammed"}) == "Unknown"
 ```
 
-- [ ] **Step 2: Run them**
+- [x] **Step 2: Run them**
 
 ```bash
 "$PY" -m pytest tests/test_faces.py -v
@@ -347,7 +366,7 @@ def test_unseen_label_id_is_unknown():
 Expected: 9 passed (the implementation from Task 3 already satisfies these — these
 tests exist to lock the behavior against future edits that invert the comparison).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/test_faces.py
@@ -361,7 +380,7 @@ git commit -m "test: lock in confidence-as-distance semantics"
 **Files:**
 - Create: `src/detect_image.py`
 
-- [ ] **Step 1: Write it**
+- [x] **Step 1: Write it**
 
 ```python
 """Detect faces in a still image and draw boxes.
@@ -411,7 +430,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 2: Verify against the known fixture**
+- [x] **Step 2: Verify against the known fixture**
 
 ```bash
 "$PY" src/detect_image.py ../opencv-ex/Face.jpg -o docs/images/detect_result.jpg
@@ -419,7 +438,7 @@ if __name__ == "__main__":
 
 Expected: `Found 4 face(s)`
 
-- [ ] **Step 3: Verify the failure path**
+- [x] **Step 3: Verify the failure path**
 
 ```bash
 "$PY" src/detect_image.py nope.jpg
@@ -427,7 +446,7 @@ Expected: `Found 4 face(s)`
 
 Expected: `Error: could not read image at nope.jpg`, exit code 1.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/detect_image.py docs/images/detect_result.jpg
@@ -441,7 +460,7 @@ git commit -m "feat: add still-image face detection script"
 **Files:**
 - Create: `src/capture_dataset.py`
 
-- [ ] **Step 1: Write it**
+- [x] **Step 1: Write it**
 
 ```python
 """Capture face images from the webcam to build a training dataset.
@@ -521,7 +540,7 @@ if __name__ == "__main__":
 Note the deliberate guard: frames containing zero or multiple faces are never saved.
 A dataset labeled "Mohammed" that contains someone else's face silently ruins training.
 
-- [ ] **Step 2: Capture two people**
+- [x] **Step 2: Capture two people**
 
 ```bash
 "$PY" src/capture_dataset.py Mohammed -n 30
@@ -531,7 +550,7 @@ A dataset labeled "Mohammed" that contains someone else's face silently ruins tr
 A second person is required — LBPH cannot discriminate with only one class.
 If no second person is available, use a photo of a different face held up to the camera.
 
-- [ ] **Step 3: Verify the dataset**
+- [x] **Step 3: Verify the dataset**
 
 ```bash
 ls dataset/Mohammed | wc -l
@@ -539,7 +558,7 @@ ls dataset/Mohammed | wc -l
 
 Expected: 30
 
-- [ ] **Step 4: Commit (script only — dataset is gitignored)**
+- [x] **Step 4: Commit (script only — dataset is gitignored)**
 
 ```bash
 git add src/capture_dataset.py
@@ -553,7 +572,7 @@ git commit -m "feat: add webcam dataset capture script"
 **Files:**
 - Create: `src/train_model.py`
 
-- [ ] **Step 1: Write it**
+- [x] **Step 1: Write it**
 
 ```python
 """Train an LBPH recognizer over dataset/ and save the model + label map.
@@ -623,7 +642,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 2: Train**
+- [x] **Step 2: Train**
 
 ```bash
 "$PY" src/train_model.py
@@ -631,7 +650,7 @@ if __name__ == "__main__":
 
 Expected: per-person counts, then `Trained on 60 images across 2 people.`
 
-- [ ] **Step 3: Verify the artifacts**
+- [x] **Step 3: Verify the artifacts**
 
 ```bash
 ls -la models/ && cat models/labels.json
@@ -639,7 +658,7 @@ ls -la models/ && cat models/labels.json
 
 Expected: `lbph_model.yml` present and non-trivial in size; `labels.json` has 2 entries.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/train_model.py
@@ -653,7 +672,7 @@ git commit -m "feat: add LBPH training script"
 **Files:**
 - Create: `src/recognize_live.py`
 
-- [ ] **Step 1: Write it**
+- [x] **Step 1: Write it**
 
 ```python
 """Recognize faces in a live webcam feed.
@@ -724,7 +743,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 2: Verify recognition works**
+- [x] **Step 2: Verify recognition works**
 
 ```bash
 "$PY" src/recognize_live.py
@@ -732,7 +751,7 @@ if __name__ == "__main__":
 
 Expected: your face gets a green box with your name and a distance below 70.
 
-- [ ] **Step 3: Verify the negative case**
+- [x] **Step 3: Verify the negative case**
 
 Point the camera at someone not in the dataset (or a photo of a stranger).
 
@@ -740,7 +759,7 @@ Expected: a red `Unknown` box. **If an unenrolled face gets a name, the threshol
 too permissive** — lower `CONFIDENCE_THRESHOLD` in `config.py` and retest. This check
 matters: without it a recognizer that names everyone still passes the positive test.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/recognize_live.py
@@ -754,7 +773,7 @@ git commit -m "feat: add live face recognition script"
 **Files:**
 - Create: `README.md` (replacing the stub)
 
-- [ ] **Step 1: Write the README**
+- [x] **Step 1: Write the README**
 
 It must contain, in order:
 
@@ -773,7 +792,7 @@ It must contain, in order:
    - LBPH needs ≥2 people to discriminate.
 7. **Screenshots** from `docs/images/`.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add README.md docs/images/
@@ -787,7 +806,7 @@ git commit -m "docs: add full setup, usage, and limitations"
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Write the section**
+- [x] **Step 1: Write the section**
 
 Content, factual and already verified:
 
@@ -811,7 +830,7 @@ Content, factual and already verified:
 > pinned as a result.** An unpinned install is a time bomb: it works until upstream
 > ships a major version, then breaks code you never touched.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add README.md && git commit -m "docs: document the OpenCV 5.0 breakage and fix"
@@ -821,7 +840,7 @@ git add README.md && git commit -m "docs: document the OpenCV 5.0 breakage and f
 
 ## Task 11: Final verification and single push
 
-- [ ] **Step 1: Full test run**
+- [x] **Step 1: Full test run**
 
 ```bash
 "$PY" -m pytest tests/ -v
@@ -829,7 +848,7 @@ git add README.md && git commit -m "docs: document the OpenCV 5.0 breakage and f
 
 Expected: 9 passed.
 
-- [ ] **Step 2: Confirm no private data is staged**
+- [x] **Step 2: Confirm no private data is staged**
 
 ```bash
 git status --porcelain && git ls-files | grep -c "^dataset/" 
@@ -837,14 +856,14 @@ git status --porcelain && git ls-files | grep -c "^dataset/"
 
 Expected: `dataset/` contains only `.gitkeep`. **Do not push if face images appear here.**
 
-- [ ] **Step 3: Review the full diff before it becomes public**
+- [x] **Step 3: Review the full diff before it becomes public**
 
 ```bash
 git log --oneline origin/main..HEAD
 git diff origin/main..HEAD --stat
 ```
 
-- [ ] **Step 4: Push once**
+- [x] **Step 4: Push once**
 
 ```bash
 git push origin main
