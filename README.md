@@ -5,6 +5,16 @@ Detects human faces in images and live webcam video using Haar cascades, and ide
 
 SmartMethods ST-2026, Task 1 — *Make a project using OpenCV*.
 
+## It works
+
+![Live recognition: two faces detected and correctly named](docs/screenshots/recognition_005.jpg)
+
+Two people in one frame, each matched to the right name. The numbers are distances —
+lower is a better match, and anything at or above `70` would be rejected as `Unknown`.
+
+This is the whole point of the project in one image: the cascade found *two* faces, and
+LBPH then decided *which* was which rather than giving them both the same label.
+
 ## Detection and recognition are two different jobs
 
 This trips people up, so it is worth stating plainly:
@@ -68,26 +78,41 @@ Run once per person. **You need at least two people** — see the limitations be
 ```bash
 $ python src/capture_dataset.py Mohammed -n 30
 Capturing 30 images for 'Mohammed'.
-SPACE = capture, 'a' = auto-capture, 'q' = quit
+SPACE = capture, 'a' = toggle auto-capture, 'q' = quit
   saved 000.jpg
   saved 001.jpg
+  skipped - need exactly 1 face, saw 0
   ...
 Saved 30 images to dataset/Mohammed
 ```
 
 Move your head between captures — vary angle and expression. Thirty near-identical frames
-teach the recognizer far less than thirty varied ones.
+teach the recognizer far less than thirty varied ones. Auto-capture is throttled to one
+image every `CAPTURE_INTERVAL` seconds for the same reason: an unthrottled burst fills the
+dataset with copies of a single pose.
 
 Frames containing zero faces or more than one face are skipped rather than saved. A single
 wrong face in a folder silently corrupts training, and it is very hard to notice afterwards.
 
+**Inspect what you captured before training.** The guard above catches ambiguous frames, but
+it cannot catch a cascade false positive — a crop of an eyebrow or a nostril is exactly one
+"face" as far as the detector is concerned. Building this project's own dataset produced two
+such frames out of sixty; both were deleted by hand before training.
+
+Add or remove people at any time, then re-run the training step. `train_model.py` rebuilds
+from scratch over every folder in `dataset/`, which also reassigns the numeric label IDs —
+that is why `labels.json` is written alongside the model. **The two files are a matched pair.**
+Use one with the other and you get confident predictions carrying the wrong names.
+
 ### 3. Train
+
+Real output from this project's own run:
 
 ```bash
 $ python src/train_model.py
-  Mohammed: 30 images (id=0)
-  Ali: 30 images (id=1)
-Trained on 60 images across 2 people.
+  james: 29 images (id=0)
+  Mohammed: 29 images (id=1)
+Trained on 58 images across 2 people.
 Model:  models/lbph_model.yml
 Labels: models/labels.json
 ```
@@ -96,12 +121,23 @@ Labels: models/labels.json
 
 ```bash
 $ python src/recognize_live.py
-Running. Press 'q' to quit.
+Running. Press 's' to save a screenshot, 'q' to quit.
+  saved recognition_001.jpg
 ```
 
 A green box with a name means a confident match. A red `Unknown` box means the face was
 detected but not matched to anyone in the dataset. The number beside the name is the
 distance — see below.
+
+`s` writes the annotated frame to `docs/screenshots/`, numbered so it never overwrites an
+earlier shot. The screenshot at the top of this README was produced that way. Keys only
+register while the video window has focus.
+
+Every script takes `-c` to pick a camera:
+
+```bash
+$ python src/recognize_live.py -c 1
+```
 
 ## How it works
 
@@ -133,6 +169,30 @@ rejects the people it was trained on. Matches at or above `CONFIDENCE_THRESHOLD`
 
 That default is a starting point, not a universal value. Tune it against your own camera and
 lighting: if strangers get names, lower it; if you get `Unknown`, raise it.
+
+### Measured results
+
+Trained on 58 images across 2 people, threshold `70`:
+
+| Subject | Distance | Verdict |
+|---|---|---|
+| Mohammed — same camera used for training | ~40 | matched |
+| Mohammed — **different** camera | 63–66 | matched, but barely |
+| james | 50–53 | matched |
+| 4 strangers, never enrolled | 89–99 | all correctly `Unknown` |
+
+Two things are worth reading off that table.
+
+**The negative case passes.** All four unenrolled faces were rejected, with a wide gap
+between them and the enrolled ones. A recognizer that names everyone would also pass a
+positive-only test, so this check is what makes the positive result meaningful.
+
+**Swapping cameras cost 24 points of margin.** The same face, minutes apart, scored ~40 on
+the camera it was trained on and 63–66 on a different one — still under the threshold, but
+with only 4 points to spare instead of 30. Nothing about the model or the person changed;
+only the sensor and its lighting did. This is the lighting sensitivity in the limitations
+below, quantified. The fix is to recapture on the camera you actually intend to use — **not**
+to raise the threshold, which would buy margin by letting strangers in.
 
 ## Project structure
 
@@ -201,8 +261,10 @@ Stated honestly, because knowing where a technique fails is part of understandin
   contrast patterns, and it has no concept of what a face actually is.
 - **Frontal faces only.** Turn your head far enough and detection fails.
   `haarcascade_frontalface_default.xml` is trained on faces looking at the camera.
-- **LBPH is sensitive to lighting.** Histogram equalization helps but does not eliminate it.
-  Train under lighting similar to where you will use it.
+- **LBPH is sensitive to lighting and to the camera itself.** Histogram equalization helps
+  but does not eliminate it. Measured here: switching to a different webcam moved the same
+  person's distance from ~40 to 63–66 against a threshold of 70 — most of the safety margin,
+  gone, with nothing changed but the sensor. Train on the camera you will actually use.
 - **At least two people are required.** With one enrolled person LBPH has nothing to
   discriminate against, so it matches everyone to that single class. The threshold is then
   the only thing rejecting strangers, which is not enough.
@@ -213,10 +275,19 @@ Stated honestly, because knowing where a technique fails is part of understandin
 
 ## Privacy
 
-`dataset/` and `models/` are gitignored. This repository is public and git history is
-permanent — a face photo committed and then deleted in a later commit remains retrievable.
-No face images are published here. Clone the repo and run `capture_dataset.py` to build
-your own dataset locally.
+`dataset/` and `models/` are gitignored, so **no training images are published here** — clone
+the repo and run `capture_dataset.py` to build your own locally. `docs/images/` is ignored
+too, for throwaway output. `docs/screenshots/` is deliberately *not* ignored: it holds the
+images used in this README.
+
+This repository is public and git history is permanent. A face photo committed and then
+deleted in a later commit remains retrievable from history — deleting the file does not undo
+the publication. That makes committing an image of a person a decision to take deliberately
+rather than by accident, which is why the two folders are separated and the ignored one is
+the default.
+
+The screenshot above is published by choice and shows the author. It also shows a second
+face, used as the required second class during testing.
 
 ## Requirements
 
