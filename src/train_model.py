@@ -2,6 +2,7 @@
 
 Usage:  python src/train_model.py
 """
+import os
 import sys
 
 import cv2
@@ -23,7 +24,13 @@ def main():
               file=sys.stderr)
         return 1
 
-    people = sorted(d for d in config.DATASET_DIR.iterdir() if d.is_dir())
+    # Only directories holding images count as people: an empty dir would
+    # otherwise claim a label id the model never trains on, and would mask the
+    # single-person warning below.
+    people = sorted(
+        d for d in config.DATASET_DIR.iterdir()
+        if d.is_dir() and any(d.glob("*.jpg"))
+    )
     if not people:
         print(f"Error: no people found in {config.DATASET_DIR}.\n"
               "Expected layout: dataset/<name>/*.jpg - run capture_dataset.py first.",
@@ -43,7 +50,10 @@ def main():
             if img is None:
                 print(f"  skipping unreadable {img_path}", file=sys.stderr)
                 continue
-            if img.shape != config.FACE_SIZE:
+            # img.shape is (h, w) but FACE_SIZE is (w, h) — compare explicitly
+            # so a non-square FACE_SIZE cannot silently transpose the image.
+            target_w, target_h = config.FACE_SIZE
+            if img.shape[:2] != (target_h, target_w):
                 img = cv2.resize(img, config.FACE_SIZE)
             images.append(img)
             ids.append(label_id)
@@ -57,8 +67,15 @@ def main():
     recognizer.train(images, np.array(ids))
 
     config.MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    recognizer.save(str(config.MODEL_PATH))
-    faces.save_labels(labels)
+
+    # Write both artifacts to temp paths then swap them into place, so an
+    # interruption can never leave a new model beside a stale label map.
+    tmp_model = config.MODEL_PATH.with_suffix(".yml.tmp")
+    tmp_labels = config.LABELS_PATH.with_suffix(".json.tmp")
+    recognizer.save(str(tmp_model))
+    faces.save_labels(labels, tmp_labels)
+    os.replace(tmp_model, config.MODEL_PATH)
+    os.replace(tmp_labels, config.LABELS_PATH)
 
     print(f"Trained on {len(images)} images across {len(people)} people.")
     print(f"Model:  {config.MODEL_PATH}")

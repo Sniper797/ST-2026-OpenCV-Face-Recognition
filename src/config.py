@@ -25,3 +25,8 @@ MIN_FACE_SIZE = (30, 30)
 CONFIDENCE_THRESHOLD = 70.0
 
 IMAGES_PER_PERSON = 30
+
+# Minimum seconds between captures. Without this, holding SPACE or enabling
+# auto-capture writes near-identical consecutive frames, so a 30-image dataset
+# becomes 30 copies of one pose and LBPH overfits to that single angle.
+CAPTURE_INTERVAL = 0.5
