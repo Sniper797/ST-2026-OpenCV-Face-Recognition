@@ -1,7 +1,8 @@
 """Capture face images from the webcam to build a training dataset.
 
 Usage:  python src/capture_dataset.py <person-name> [-n 30] [-c 0]
-Press SPACE to capture a frame, 'a' to toggle auto-capture, 'q' to quit.
+Press SPACE to capture a frame, 'a' to toggle auto-capture, 's' to save a
+screenshot of this window, 'q' to quit.
 """
 import argparse
 import re
@@ -46,7 +47,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Capturing {args.count} images for '{args.name}'.")
-    print("SPACE = capture, 'a' = toggle auto-capture, 'q' = quit")
+    print("SPACE = capture, 'a' = toggle auto-capture, 's' = screenshot, 'q' = quit")
 
     saved, auto, last_save = 0, False, 0.0
     try:
@@ -64,7 +65,7 @@ def main():
 
             cv2.putText(frame, f"{saved}/{args.count}", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.imshow("Capture - SPACE/a/q", frame)
+            cv2.imshow("Capture - SPACE/a/s/q", frame)
             key = cv2.waitKey(1) & 0xFF
 
             if key == ord("q"):
@@ -72,6 +73,15 @@ def main():
             if key == ord("a"):
                 auto = not auto
                 print(f"  auto-capture {'on' if auto else 'off'}")
+            if key == ord("s"):
+                # Documents the capture process itself: the detection box and
+                # the progress counter, not the cropped face being written.
+                # Deliberately does not fall through to a dataset capture.
+                shot = faces.save_shot(frame, "capture")
+                if shot:
+                    print(f"  screenshot {shot.name}")
+                else:
+                    print("Error: could not write screenshot", file=sys.stderr)
 
             if key == ord(" ") or auto:
                 # Consecutive frames are near-identical, so an unthrottled

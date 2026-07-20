@@ -120,3 +120,32 @@ def test_load_recognizer_missing_model_explains_itself(tmp_path):
 
 def test_create_recognizer_returns_untrained_recognizer():
     assert faces.create_recognizer() is not None
+
+
+def test_next_shot_path_starts_at_one(tmp_path):
+    assert faces.next_shot_path("recognition", tmp_path).name == "recognition_001.jpg"
+
+
+def test_next_shot_path_skips_existing(tmp_path):
+    (tmp_path / "recognition_001.jpg").write_bytes(b"x")
+    (tmp_path / "recognition_002.jpg").write_bytes(b"x")
+    assert faces.next_shot_path("recognition", tmp_path).name == "recognition_003.jpg"
+
+
+def test_next_shot_path_keeps_prefixes_independent(tmp_path):
+    # A capture screenshot must not push the recognition numbering along.
+    (tmp_path / "capture_001.jpg").write_bytes(b"x")
+    assert faces.next_shot_path("recognition", tmp_path).name == "recognition_001.jpg"
+
+
+def test_next_shot_path_creates_missing_directory(tmp_path):
+    target = tmp_path / "screenshots"
+    faces.next_shot_path("capture", target)
+    assert target.is_dir()
+
+
+def test_save_shot_writes_a_readable_image(tmp_path):
+    frame = np.zeros((40, 60, 3), np.uint8)
+    path = faces.save_shot(frame, "capture", tmp_path)
+    assert path is not None and path.exists()
+    assert cv2.imread(str(path)) is not None

@@ -7,22 +7,7 @@ import sys
 
 import cv2
 
-import config
 import faces
-
-
-def next_shot_path():
-    """Return the next unused docs/images/recognition_NNN.jpg path.
-
-    Numbered rather than timestamped so screenshots stay in capture order, and
-    scanned each time so an existing shot is never silently overwritten.
-    """
-    config.SHOTS_DIR.mkdir(parents=True, exist_ok=True)
-    existing = {p.name for p in config.SHOTS_DIR.glob("recognition_*.jpg")}
-    n = 1
-    while f"recognition_{n:03d}.jpg" in existing:
-        n += 1
-    return config.SHOTS_DIR / f"recognition_{n:03d}.jpg"
 
 
 def main():
@@ -71,11 +56,11 @@ def main():
             if key == ord("s"):
                 # frame carries the boxes and labels drawn above, which is
                 # exactly what the README needs.
-                path = next_shot_path()
-                if cv2.imwrite(str(path), frame):
+                path = faces.save_shot(frame, "recognition")
+                if path:
                     print(f"  saved {path.name}")
                 else:
-                    print(f"Error: could not write {path}", file=sys.stderr)
+                    print("Error: could not write screenshot", file=sys.stderr)
     finally:
         cap.release()
         cv2.destroyAllWindows()

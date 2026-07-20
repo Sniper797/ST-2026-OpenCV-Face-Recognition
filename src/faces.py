@@ -107,6 +107,32 @@ def load_recognizer(model_path=None):
     return recognizer
 
 
+def next_shot_path(prefix, directory=None):
+    """Return the next unused <directory>/<prefix>_NNN.jpg path.
+
+    Numbered rather than timestamped so shots stay in capture order, and the
+    directory is rescanned on every call so an existing shot is never silently
+    overwritten — including across separate runs of a script.
+    """
+    directory = directory or config.SHOTS_DIR
+    directory.mkdir(parents=True, exist_ok=True)
+    existing = {p.name for p in directory.glob(f"{prefix}_*.jpg")}
+    n = 1
+    while f"{prefix}_{n:03d}.jpg" in existing:
+        n += 1
+    return directory / f"{prefix}_{n:03d}.jpg"
+
+
+def save_shot(frame, prefix, directory=None):
+    """Write an annotated frame to the screenshots folder.
+
+    Returns the path on success, or None if the write failed — callers report
+    the failure rather than assuming the file landed.
+    """
+    path = next_shot_path(prefix, directory)
+    return path if cv2.imwrite(str(path), frame) else None
+
+
 def save_labels(labels, path=None):
     path = path or config.LABELS_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
