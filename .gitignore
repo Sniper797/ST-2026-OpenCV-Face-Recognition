@@ -1,0 +1,7 @@
+dataset/*
+!dataset/.gitkeep
+models/*
+!models/.gitkeep
+__pycache__/
+*.pyc
+.pytest_cache/
