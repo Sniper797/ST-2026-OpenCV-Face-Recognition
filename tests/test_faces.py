@@ -69,3 +69,44 @@ def test_threshold_boundary_is_exclusive():
 
 def test_unseen_label_id_is_unknown():
     assert faces.decide_label(7, 5.0, {"0": "Mohammed"}) == "Unknown"
+
+
+def test_normalize_face_crops_the_correct_region():
+    # Asymmetric box with x != y and w != h, so an accidental numpy [row, col]
+    # transposition would grab the wrong region and fail this.
+    gray = np.zeros((480, 640), np.uint8)
+    gray[60:100, 300:340] = 255  # bright patch inside the box below
+    out = faces.normalize_face(gray, (250, 50, 200, 100))
+    assert out.max() == 255
+
+    # And the same patch must NOT appear in a box that excludes it.
+    out_elsewhere = faces.normalize_face(gray, (0, 200, 200, 100))
+    assert out_elsewhere.max() < 255
+
+
+def test_labels_round_trip_coerces_keys_to_strings(tmp_path):
+    # JSON has no integer keys, so int ids come back as strings. This is exactly
+    # why decide_label() looks up str(label_id) rather than label_id.
+    path = tmp_path / "labels.json"
+    faces.save_labels({0: "Mohammed", 1: "Ali"}, path)
+    assert faces.load_labels(path) == {"0": "Mohammed", "1": "Ali"}
+
+
+def test_load_labels_missing_file_explains_itself(tmp_path):
+    with pytest.raises(RuntimeError, match="Run train_model.py first"):
+        faces.load_labels(tmp_path / "nope.json")
+
+
+def test_to_gray_passes_through_grayscale():
+    gray = np.zeros((10, 10), np.uint8)
+    assert faces.to_gray(gray).ndim == 2
+
+
+def test_to_gray_converts_colour():
+    colour = np.zeros((10, 10, 3), np.uint8)
+    assert faces.to_gray(colour).ndim == 2
+
+
+def test_load_recognizer_missing_model_explains_itself(tmp_path):
+    with pytest.raises(RuntimeError, match="Run train_model.py first"):
+        faces.load_recognizer(tmp_path / "nope.yml")

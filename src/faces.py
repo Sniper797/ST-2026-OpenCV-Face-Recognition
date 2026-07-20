@@ -2,6 +2,7 @@
 
 Kept free of webcam and CLI concerns so it can be unit tested.
 """
+import functools
 import json
 
 import cv2
@@ -9,11 +10,14 @@ import cv2
 import config
 
 
+@functools.lru_cache(maxsize=1)
 def load_cascade():
     """Load the frontal-face Haar cascade.
 
-    Raises RuntimeError with a pointed message if the XML is missing, which is
-    what happens on OpenCV 5.x where the bundled cascades were removed.
+    Cached: parsing the ~900KB XML costs more than a detection pass itself, and
+    all four CLI scripts reach for it. Raises RuntimeError with a pointed
+    message if the XML is missing, which is what happens on OpenCV 5.x where
+    the bundled cascades were removed.
     """
     cascade = cv2.CascadeClassifier(str(config.CASCADE_PATH))
     if cascade.empty():
@@ -40,13 +44,29 @@ def detect_faces(gray, cascade=None):
 def normalize_face(gray, box):
     """Crop a face box and standardize it for LBPH.
 
-    Crop -> resize to FACE_SIZE -> histogram equalize. LBPH requires every image
-    to share dimensions; equalization reduces sensitivity to lighting.
+    Requires GRAYSCALE input; run a colour frame through to_gray() first.
+    Crop -> resize to FACE_SIZE -> histogram equalize. LBPH requires every
+    image to share dimensions; equalization reduces sensitivity to lighting.
+
+    The box is clamped to the image bounds. Without that, numpy silently
+    returns a partial crop and cv2.resize stretches it to full size, quietly
+    poisoning the training set the moment anyone adds a margin to a box.
     """
     x, y, w, h = box
-    crop = gray[y:y + h, x:x + w]
+    height, width = gray.shape[:2]
+    x, y = max(0, x), max(0, y)
+    crop = gray[y:min(y + h, height), x:min(x + w, width)]
+    if crop.size == 0:
+        raise ValueError(f"Face box {box} lies outside the {width}x{height} image.")
     resized = cv2.resize(crop, config.FACE_SIZE)
     return cv2.equalizeHist(resized)
+
+
+def to_gray(img):
+    """Convert a BGR frame to grayscale, passing through already-gray input."""
+    if img.ndim == 2:
+        return img
+    return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 
 def decide_label(label_id, confidence, labels):
@@ -60,6 +80,21 @@ def decide_label(label_id, confidence, labels):
     return labels.get(str(label_id), "Unknown")
 
 
+def load_recognizer(model_path=None):
+    """Create an LBPH recognizer and load a trained model from disk."""
+    if not hasattr(cv2, "face"):
+        raise RuntimeError(
+            "cv2.face is missing. Install opencv-contrib-python==4.13.0.92 "
+            "(plain opencv-python does not include the LBPH recognizer)."
+        )
+    model_path = model_path or config.MODEL_PATH
+    if not model_path.exists():
+        raise RuntimeError(f"No trained model at {model_path}. Run train_model.py first.")
+    recognizer = cv2.face.LBPHFaceRecognizer_create()
+    recognizer.read(str(model_path))
+    return recognizer
+
+
 def save_labels(labels, path=None):
     path = path or config.LABELS_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -68,4 +103,9 @@ def save_labels(labels, path=None):
 
 def load_labels(path=None):
     path = path or config.LABELS_PATH
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise RuntimeError(f"No label map at {path}. Run train_model.py first.") from None
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Label map at {path} is corrupt ({e}). Re-run train_model.py.") from None
