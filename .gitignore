@@ -5,6 +5,10 @@ models/*
 __pycache__/
 *.pyc
 .pytest_cache/
+# Scratch output (detection runs, experiments). Not published.
 docs/images/*.jpg
 docs/images/*.png
 !docs/images/.gitkeep
+
+# docs/screenshots/ is deliberately NOT ignored — it holds the images used in
+# the README. Anything placed there becomes public and permanent in git history.

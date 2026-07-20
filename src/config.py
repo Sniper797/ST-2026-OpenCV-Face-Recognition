@@ -10,6 +10,11 @@ MODELS_DIR = ROOT / "models"
 MODEL_PATH = MODELS_DIR / "lbph_model.yml"
 LABELS_PATH = MODELS_DIR / "labels.json"
 
+# Where 's' in recognize_live.py writes its screenshots. This folder is tracked
+# by git — anything saved here is meant for the README. docs/images/ stays
+# gitignored for throwaway output.
+SHOTS_DIR = ROOT / "docs" / "screenshots"
+
 CASCADE_PATH = Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml"
 
 # Every training image must be this size — LBPH requires uniform dimensions.

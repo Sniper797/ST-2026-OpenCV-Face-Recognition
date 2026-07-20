@@ -1,13 +1,28 @@
 """Recognize faces in a live webcam feed.
 
-Usage:  python src/recognize_live.py     ('q' to quit)
+Usage:  python src/recognize_live.py     ('s' to save a screenshot, 'q' to quit)
 """
 import argparse
 import sys
 
 import cv2
 
+import config
 import faces
+
+
+def next_shot_path():
+    """Return the next unused docs/images/recognition_NNN.jpg path.
+
+    Numbered rather than timestamped so screenshots stay in capture order, and
+    scanned each time so an existing shot is never silently overwritten.
+    """
+    config.SHOTS_DIR.mkdir(parents=True, exist_ok=True)
+    existing = {p.name for p in config.SHOTS_DIR.glob("recognition_*.jpg")}
+    n = 1
+    while f"recognition_{n:03d}.jpg" in existing:
+        n += 1
+    return config.SHOTS_DIR / f"recognition_{n:03d}.jpg"
 
 
 def main():
@@ -28,7 +43,7 @@ def main():
         print(f"Error: could not open camera {args.camera}", file=sys.stderr)
         return 1
 
-    print("Running. Press 'q' to quit.")
+    print("Running. Press 's' to save a screenshot, 'q' to quit.")
     try:
         while True:
             ok, frame = cap.read()
@@ -48,9 +63,19 @@ def main():
                 cv2.putText(frame, f"{name} ({distance:.0f})", (x, y - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, colour, 2)
 
-            cv2.imshow("Recognition - 'q' to quit", frame)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            cv2.imshow("Recognition - 's' saves, 'q' quits", frame)
+            key = cv2.waitKey(1) & 0xFF
+
+            if key == ord("q"):
                 break
+            if key == ord("s"):
+                # frame carries the boxes and labels drawn above, which is
+                # exactly what the README needs.
+                path = next_shot_path()
+                if cv2.imwrite(str(path), frame):
+                    print(f"  saved {path.name}")
+                else:
+                    print(f"Error: could not write {path}", file=sys.stderr)
     finally:
         cap.release()
         cv2.destroyAllWindows()
